@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -10,6 +12,7 @@
 #include <json.h>
 
 #include "common/timing.h"
+#include "common/version.h"
 
 #include "swaglog.h"
 
@@ -25,6 +28,10 @@ typedef struct LogState {
 static LogState s = {
   .lock = PTHREAD_MUTEX_INITIALIZER,
 };
+
+static void cloudlog_bind_locked(const char* k, const char* v) {
+  json_append_member(s.ctx_j, k, json_mkstring(v));
+}
 
 static void cloudlog_init() {
   if (s.inited) return;
@@ -45,10 +52,19 @@ static void cloudlog_init() {
     }
   }
 
+  // openpilot bindings
+  char* dongle_id = getenv("DONGLE_ID");
+  if (dongle_id) {
+    cloudlog_bind_locked("dongle_id", dongle_id);
+  }
+  cloudlog_bind_locked("version", COMMA_VERSION);
+  bool dirty = !getenv("CLEAN");
+  json_append_member(s.ctx_j, "dirty", json_mkbool(dirty));
+
   s.inited = true;
 }
 
-void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func, const char* srctime, 
+void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 const char* fmt, ...) {
   pthread_mutex_lock(&s.lock);
   cloudlog_init();
@@ -77,7 +93,6 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
   json_append_member(log_j, "filename", json_mkstring(filename));
   json_append_member(log_j, "lineno", json_mknumber(lineno));
   json_append_member(log_j, "funcname", json_mkstring(func));
-  json_append_member(log_j, "srctime", json_mkstring(srctime));
   json_append_member(log_j, "created", json_mknumber(seconds_since_epoch()));
 
   char* log_s = json_encode(log_j);
@@ -99,6 +114,6 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
 void cloudlog_bind(const char* k, const char* v) {
   pthread_mutex_lock(&s.lock);
   cloudlog_init();
-  json_append_member(s.ctx_j, k, json_mkstring(v));
+  cloudlog_bind_locked(k, v);
   pthread_mutex_unlock(&s.lock);
 }

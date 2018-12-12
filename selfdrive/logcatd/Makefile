@@ -2,6 +2,7 @@ CC = clang
 CXX = clang++
 
 PHONELIBS = ../../phonelibs
+BASEDIR = ../..
 
 WARN_FLAGS = -Werror=implicit-function-declaration \
              -Werror=incompatible-pointer-types \
@@ -20,7 +21,7 @@ ZMQ_LIBS = -L$(PHONELIBS)/zmq/aarch64/lib \
 .PHONY: all
 all: logcatd
 
--include ../common/cereal.mk
+include ../common/cereal.mk
 
 OBJS = logcatd.o \
        $(CEREAL_OBJS)
@@ -38,7 +39,7 @@ logcatd: $(OBJS)
 	@echo "[ CXX ] $@"
 	$(CXX) $(CXXFLAGS) \
            -I$(PHONELIBS)/android_system_core/include \
-           $(CEREAL_CFLAGS) \
+           $(CEREAL_CXXFLAGS) \
            $(ZMQ_FLAGS) \
            -I../ \
            -I../../ \
